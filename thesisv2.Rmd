@@ -1,0 +1,494 @@
+---
+title: "Thesis"
+author: "Eric Odongo"
+date: "2025-03-05"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = F, warning = F,
+                      fig.width = 6.5, fig.height = 5)
+```
+
+# Results and Interpretation
+
+## Introduction
+
+These chapter discusses the descriptive statistics, diagnostic tests, results from the fitted models, and their interpretation. The data was pooled data from four panels: 2003, 2008-2009, 2014 and 2022. The dependent variable is age in months at death. Only single births were included for analysis. The main statistical model used is the Cox regression model and its main assumption is proportional hazards assumption which will be verified in the course of this chapter.
+
+We begin by visualizing baseline characteristics and survival curves stratified by some of the categorical variables.
+
+
+```{r}
+
+## Load packages and data
+
+library(dplyr, lib.loc = 'D:/old data/Msc/master_thesis/R packages')
+library(tidyverse, lib.loc = 'D:/old data/Msc/master_thesis/R packages')
+library(lubridate)
+library(here)
+library(ggthemes)
+library(scales)
+library(haven)
+library(survival)  # For survival analysis
+library(survey)  # For survey-weighted analysis
+library(ggfortify)
+library(gtsummary)
+library(survminer)
+
+DHS_final <- read_rds(here('Data','DHS_final2.rds'))
+
+```
+
+\newpage
+
+## Descriptive statistics and basic visualizations
+
+
+```{r}
+
+# Demographic characteristics
+
+DHS_final |> 
+    dplyr::select(age_death_months, u5m, wealth_index, marital_status,
+                  sex_of_child,smoke_status, type_of_residence,
+                  duration_of_breastfeeding, vaccination_satus) %>% 
+    gtsummary::tbl_summary(
+    by = sex_of_child,
+    missing_text  = 'missing',
+    label = list(wealth_index ~ 'Wealth index',
+                 type_of_residence ~ 'Type of residence',
+                 marital_status ~ 'Marital Status', 
+                 smoke_status ~ "Smoking Status",
+                 u5m ~ 'Censoring Status',
+                 age_death_months ~ 'Time to death',
+                 duration_of_breastfeeding ~ 'Breast feeding duration',
+                 vaccination_satus ~ 'Vaccination Status'),
+    statistic = list(all_continuous() ~ "{mean} ({sd}, {p50})"))
+
+```
+
+
+The table above shows the frequency counts for the main categorical variables in the data set and mean, standard deviation and 50th percentiles for the continuous variables like breast feeding duration. It gives us insight into how these variables are distributed among male and female children in our sample.
+
+\newpage
+
+**Survival experience stratified by time period**
+
+```{r}
+# Survival object
+
+
+surv_obj <- Surv(DHS_final$age_death_months, DHS_final$u5m)
+
+
+# Kaplan-Meier survival analysis
+km_fit <- survfit(surv_obj ~ period, data = DHS_final)
+
+# summary(km_fit, times = c(5,10,20,30,60))
+# Plot Kaplan-Meier survival curves
+#ggplot2::autoplot(km_fit) + theme_stata()
+
+# nice plot plus risk table using ggsurvplot package
+
+survminer::ggsurvplot(
+    km_fit, 
+    data = DHS_final,          
+    conf.int = FALSE,              
+    surv.scale = "default", 
+    break.time.by = 10, # increment of 10 months
+    xlab = "Follow-up months",
+    ylab = "Survival Probability",
+    pval = T,                      # print p-value of Log-rank test 
+    pval.coord = c(45,.995),        # print p-value at these plot coordinates
+    risk.table = F,                # print the risk table at bottom 
+    legend.title = "Analysis Periods",       # legend characteristics
+    legend.labs = c("1999-2003","2005-2009", "2010-2014", "2018-2022"),
+    font.legend = 10, 
+    palette = "Dark2",# specify color palette 
+    ylim = c(0.95, 1),
+    ggtheme = theme_stata()       
+) 
+
+
+
+#log rank test
+
+#survdiff(surv_obj ~ period, data = DHS_final)
+
+```
+
+The null hypothesis is that there are no differences in survival experience of subjects between different time periods. The alternative hypothesis is that at least of the time periods differ from the rest. We use Kaplan Meier curves to visualize the differences and use the log-rank test to formally test for these differences.
+
+The p-value for the log-rank test is less than 0.05 implying that the survival experience of subjects among different time periods is statistically different.
+Individuals in the period of 2000 to 2005 exhibit lower chances of survival followed by individuals in the the period of 2006 to 2010. The survival probabilities of individuals in the periods of 2011 to 2015 and 2016 to 2020 are almost similar, because their survival curves are very close to each other.
+
+
+**Survival experience stratified by type of residence**
+
+```{r}
+
+#by type of residence
+km_fit2 <- survfit(surv_obj ~ type_of_residence, data = DHS_final)
+
+# Plot Kaplan-Meier survival curves
+#ggplot2::autoplot(km_fit2) + theme_stata()
+
+#survdiff(surv_obj ~ type_of_residence, data = DHS_final)
+#table(DHS_final$type_of_residence, exclude = T)
+
+survminer::ggsurvplot(
+    km_fit2, 
+    data = DHS_final,          
+    conf.int = FALSE,              
+    surv.scale = "default", # present probabilities in the y axis in %
+    break.time.by = 10, # increment of 10 months
+    xlab = "Follow-up months",
+    ylab = "Survival Probability",
+    pval = T,                      # print p-value of Log-rank test 
+    pval.coord = c(45,.995),        # print p-value at these plot coordinates
+    risk.table = F,                # print the risk table at bottom 
+    legend.title = "Type of Residence",       # legend characteristics
+    legend.labs = c("Urban","Rural"),
+    font.legend = 10, 
+    palette = "Dark2",# specify color palette 
+    ylim = c(0.97, 1),
+    ggtheme = theme_light()       
+) 
+
+## type of residence not significant - no difference in survival
+
+```
+
+The null hypothesis is that there are no differences in survival experience of subjects between different types of residence. The alternative hypothesis is that at least of the types of residence differs from the other. We use Kaplan Meier curves to visualize the differences and use the log-rank test to formally test for these differences.
+
+The p-value for the log-rank test is less than 0.05 implying that the survival experience of subjects in different types of residence is statistically different. Individuals staying i rural areas exhibit lower levels of survival probabilities as compared to their urban counterparts.
+
+**Survival experience stratified by region**
+
+```{r}
+
+
+km_fit3 <- survfit(surv_obj ~ region, data = DHS_final)
+
+# Plot Kaplan-Meier survival curves
+#ggplot2::autoplot(km_fit3) + theme_stata()
+
+#survdiff(surv_obj ~ region, data = DHS_final)
+#table(DHS_final$region, exclude = T)
+
+survminer::ggsurvplot(
+    km_fit3, 
+    data = DHS_final,          
+    conf.int = FALSE,              
+    surv.scale = "default", # present probabilities in the y axis in %
+    break.time.by = 10, # increment of 10 months
+    xlab = "Follow-up months",
+    ylab = "Survival Probability",
+    pval = T,                      # print p-value of Log-rank test 
+    pval.coord = c(45,.995),        # print p-value at these plot coordinates
+    risk.table = F,                # print the risk table at bottom 
+    legend.title = "Region",       # legend characteristics
+    legend.labs = c("Nairobi","Central","Coast","Eastern","Nyanza",
+                    "Rift Valley","Western","North Eastern"),
+    font.legend = 10, 
+    palette = "Dark2",# specify color palette 
+    ylim = c(0.96, 1),
+    ggtheme = theme_stata()       
+) 
+```
+
+
+**Survival experience by mother's level of education**
+
+```{r}
+
+#table(DHS_final$mother_level_educ, exclude = T)
+
+km_fit4 <- survfit(surv_obj ~ mother_level_educ, data = DHS_final)
+
+survminer::ggsurvplot(
+    km_fit4, 
+    data = DHS_final,          
+    conf.int = FALSE,              
+    surv.scale = "default", # present probabilities in the y axis in %
+    break.time.by = 10, # increment of 10 months
+    xlab = "Follow-up months",
+    ylab = "Survival Probability",
+    pval = T,                      # print p-value of Log-rank test 
+    pval.coord = c(45,.995),        # print p-value at these plot coordinates
+    risk.table = F,                # print the risk table at bottom 
+    legend.title = "Level of education",       # legend characteristics
+    legend.labs = c("No education","Primary","Secondary","Higher"),
+    font.legend = 10, 
+    palette = "Dark2",# specify color palette 
+    ylim = c(0.97, 1),
+    ggtheme = theme_stata() 
+)
+
+#level of education is significant
+
+```
+
+
+**Survival experience by smoking status**
+
+```{r}
+
+# table(DHS_final$smoke_status, exclude = T)
+
+km_fit5 <- survfit(surv_obj ~ smoke_status, data = DHS_final)
+
+survminer::ggsurvplot(
+    km_fit5, 
+    data = DHS_final,          
+    conf.int = FALSE,              
+    surv.scale = "percent", # present probabilities in the y axis in %
+    break.time.by = 10, # increment of 10 months
+    xlab = "Follow-up months",
+    ylab = "Survival Probability",
+    pval = T,                      # print p-value of Log-rank test 
+    pval.coord = c(45,.995),        # print p-value at these plot coordinates
+    risk.table = T,                # print the risk table at bottom 
+    legend.title = "Level of education",       # legend characteristics
+    legend.labs = c("No","Yes"),
+    font.legend = 10, 
+    palette = "Dark2",# specify color palette 
+    ylim = c(0.97, 1),
+    ggtheme = theme_stata() 
+)
+
+## smoking status is not significant
+```
+
+**Survival experience by gender**
+
+```{r}
+
+km_fit6 <- survfit(surv_obj ~ sex_of_child, data = DHS_final)
+
+
+survminer::ggsurvplot(
+    km_fit6, 
+    data = DHS_final,          
+    conf.int = FALSE,              
+    surv.scale = "default", 
+    break.time.by = 10, # increment of 10 months
+    xlab = "Follow-up months",
+    ylab = "Survival Probability",
+    pval = T,                      # print p-value of Log-rank test 
+    pval.coord = c(45,.995),        # print p-value at these plot coordinates
+    risk.table = F,                # print the risk table at bottom 
+    legend.title = "Sex of the child",       # legend characteristics
+    legend.labs = c("Male","Female"),
+    font.legend = 10, 
+    palette = "Dark2",# specify color palette 
+    ylim = c(0.97, 1),
+    ggtheme = theme_stata() 
+)
+```
+
+\newpage
+
+**Distribution of mortality rates across time periods and across regions**
+
+```{r}
+
+# Apply DHS sample weights
+DHS_final <- DHS_final %>% mutate(wt = V005 / 1e6)
+svy_df <- svydesign(id = ~ 1, weights = ~wt, data = DHS_final)
+
+# Under-five mortality by period
+svy_mean <- svyby(~u5m, ~ period, svy_df, svymean)
+# 
+# svy_mean |> 
+#   knitr::kable(caption = 'Under-five mortality by period')
+
+# Bar plot of under-five mortality rate
+
+DHS_final |> 
+  filter(!is.na(period)) |> 
+  ggplot(aes(x = period, y = u5m, weight = wt, fill = period)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  labs(y     = "Under-Five Mortality Rate", 
+       title = "Under-Five Mortality by Period",
+       x     = '') +
+  theme_stata() +
+  theme(legend.position = 'none')
+
+svy_mean |> 
+  knitr::kable(caption = 'Under-five mortality by period')
+
+# Bar plot of under-five mortality rate by region
+
+DHS_final |> 
+  filter(!is.na(region)) |> 
+  ggplot(aes(x = reorder(region, -u5m), y = u5m, weight = wt, fill = region)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  labs(y     = "Under-Five Mortality Rate", 
+       title = "Under-Five Mortality by Region",
+       x     = '') +
+  theme_stata() +
+  theme(legend.position = 'none') +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+
+svy_mean2 <- svyby(~u5m, ~ region, svy_df, svymean)
+
+svy_mean2 |> 
+  knitr::kable(caption = 'Under-five mortality by region')
+
+
+# Logit regression
+# logit_model <- glm(u5m ~ period, data = DHS_final, 
+#                    family = binomial(link = "logit"))
+# summary(logit_model)
+# 
+# # Cox proportional hazards model
+# cox_model <- coxph(Surv(B3, u5m) ~ period, data = DHS_final)
+# summary(cox_model)
+
+```
+
+\newpage
+
+## Cox Proportional Hazards model
+
+### Unadjusted Cox models
+
+*Association between analysis time periods and hazard of death*
+
+```{r}
+
+
+cox_model_period <-  survival::coxph(
+              Surv(age_death_months, u5m) ~ period ,data = DHS_final
+              )
+
+
+cox_model_period %>% tbl_regression(exponentiate = TRUE)
+
+#test the PH assumption
+
+tests = cox.zph(cox_model_period) 
+# str(tests$table) 
+tests
+
+
+tests$table |> knitr::kable(digits = 1)
+
+```
+
+*Association between regions and hazard of death*
+
+```{r}
+
+# period does not meet PH assumption
+
+cox_model_region <-  survival::coxph(
+              Surv(age_death_months, u5m) ~ region ,data = DHS_final
+              )
+
+
+cox_model_region %>% tbl_regression(exponentiate = TRUE)
+
+# test PH assumption
+
+tests = cox.zph(cox_model_region) 
+tests$table |> knitr::kable(digits = 1)
+
+```
+
+\newpage
+
+*Association between sex of the child and hazard of death*
+
+```{r}
+
+
+cox_model_sex <-  survival::coxph(
+              Surv(age_death_months, u5m) ~ sex_of_child ,data = DHS_final
+              )
+
+
+cox_model_sex %>% tbl_regression(exponentiate = TRUE)
+
+# test PH assumption
+
+tests = cox.zph(cox_model_sex) 
+tests$table |> knitr::kable(digits = 1)
+
+```
+
+*Association between wealth index and the hazard function*
+
+```{r}
+
+cox_model_wealth <-  survival::coxph(
+              Surv(age_death_months, u5m) ~ wealth_index ,data = DHS_final
+              )
+
+
+cox_model_wealth %>% tbl_regression(exponentiate = TRUE)
+
+# test PH assumption
+
+tests = cox.zph(cox_model_wealth) 
+tests$table |> knitr::kable(digits = 1)
+```
+
+*Association between smoking status and hazard function*
+
+```{r}
+cox_model_smoke <-  survival::coxph(
+              Surv(age_death_months, u5m) ~ smoke_status ,data = DHS_final
+              )
+
+
+cox_model_smoke %>% tbl_regression(exponentiate = TRUE)
+
+# test PH assumption
+
+tests = cox.zph(cox_model_smoke) 
+tests$table |> knitr::kable(digits = 1)
+
+```
+
+### Adjusted Hazard Rations in a multiple Cox regression model
+
+We now consider the association between the risk of death and a number of factors collectively.
+
+```{r}
+
+# table(DHS_final$V106, exclude = T)
+# str(DHS_final$preced_birth_interval_months)
+
+cox_model_full <-  survival::coxph(
+              Surv(age_death_months, u5m) ~
+              wealth_index + age_of_the_mother +
+              sex_of_child  + smoke_status + type_of_residence +
+              preced_birth_interval_months
+              ,
+              data = DHS_final
+              )
+
+cox_model_full %>% tbl_regression(exponentiate = TRUE)
+
+# test PH assumption
+
+tests = cox.zph(cox_model_full) 
+tests$table |> knitr::kable(digits = 1)
+
+
+```
+
+
+\newpage
+
+# Chapter 5: Discussions, Conclusions and Recommendations
+
+
+
+
+
