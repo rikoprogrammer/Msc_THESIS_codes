@@ -17,11 +17,11 @@ library(forcats)
 
 data_2003 <- read_sas(here('Data','2003_BR.sas7bdat')) |> 
   dplyr::select(CASEID, V463A, BIDX, V005,M5, V106, ML101, V008, V501,V701, BORD,
-                B0:B5, B7, B8, V024, V025, V190, V012, B11, M15, M4,  H10, H11) |> 
+                B0:B5, B7, B8, V024, V025, V190, V012, V007, B11, M15, M4,  H10, H11) |> 
   #pick only singletons -- no multiple births- B=0
   #also pick only children below the age of five years prior to the interview date/year = 2003
   dplyr::filter(B0 == 0 & B2 >= 1999) |> 
-  mutate(region = factor(V024, label = c('Nairobi','Central','Coast',
+  mutate(Region = factor(V024, label = c('Nairobi','Central','Coast',
                                          'Eastern','Nyanza','Rift Valley',
                                          'Western','North Eastern'))) |>
   mutate(place_of_delivery = factor(M15, 
@@ -44,12 +44,12 @@ data_2003 <- read_sas(here('Data','2003_BR.sas7bdat')) |>
 
 data_2008_2009 <- read_sas(here('Data','2008_2009_BR.sas7bdat')) |> 
   dplyr::select(CASEID, V463A, BIDX,V106, M5, V190,ML101, V005, V008, V501,V701,
-                BORD,B0:B5, B7, B8, V024, V012, V025, B11, M15, M4,  H10, H11) |> 
+                BORD,B0:B5, B7, B8, V024, V012, V025, B11, M15, M4, V007, H10, H11) |> 
   
   #pick only singletons -- no multiple births - B=0
   #also pick only children below the age of five years prior to the interview date/year = 2009
   dplyr::filter(B0 == 0 & B2 >= 2005) |> 
-  mutate(region = factor(V024, label = c('Nairobi','Central','Coast',
+  mutate(Region = factor(V024, label = c('Nairobi','Central','Coast',
                                          'Eastern','Nyanza','Rift Valley',
                                          'Western','North Eastern'))) |>
   mutate(place_of_delivery = factor(M15,
@@ -74,7 +74,7 @@ data_2008_2009 <- read_sas(here('Data','2008_2009_BR.sas7bdat')) |>
 
 data_2014 <- read_sas(here('Data','2014_BR.sas7bdat')) |> 
   dplyr::select(CASEID, V463A, BIDX, V190,M5, ML101, V106, V005, V008, V501,V701, BORD,
-                B0:B5, B7,B8, V024, V012, V025, B11, M15, M4,  H10, H11) |> 
+                B0:B5, B7,B8, V024, V012, V025, B11, M15, M4, V007, H10, H11) |> 
   
   #pick only singletons -- no multiple births - B=0
   #also pick only children below the age of five years prior to the interview date/year = 2014
@@ -83,7 +83,7 @@ data_2014 <- read_sas(here('Data','2014_BR.sas7bdat')) |>
                              V024 == 8 ~ 7,
                              V024 == 9 ~ 8,
                             .default = V024),
-         region = factor(region_, label = c('Coast','North Eastern','Eastern',
+         Region = factor(region_, label = c('Coast','North Eastern','Eastern',
                                             'Central','Rift Valley','Western',
                                             'Nyanza','Nairobi'))) |> 
   mutate(place_of_delivery = factor(M15, 
@@ -105,8 +105,8 @@ data_2014 <- read_sas(here('Data','2014_BR.sas7bdat')) |>
 
 
 data_2022 <- read_sas(here('Data','2022_BR.sas7bdat')) |> 
-  dplyr::select(CASEID, V463A, BIDX,V106, M5,V190, ML101, V005, V008, V501,V701, BORD,
-                B0:B5, B7, B8, B11, V012, V024, V025, M15, M4,  H10, H11) |> 
+  dplyr::select(CASEID, V463A, BIDX,V106, M5,V190, ML101, V005, V008, V501,V701,
+                BORD,B0:B5, B7, B8, B11, V012, V024, V025, V007, M15, M4,  H10, H11) |> 
   
   # pick only singletons -- no multiple births - B=0
   #also pick only children below the age of five years prior to the interview date/year = 2022
@@ -121,7 +121,7 @@ data_2022 <- read_sas(here('Data','2022_BR.sas7bdat')) |>
                              V024 %in% c(23:36) ~ 6,
                              V024 %in% c(37:40) ~ 7,
                              V024 %in% c(7:9)   ~ 8),
-         region = factor(region_, 
+         Region = factor(region_, 
                          label = c('Nairobi','Central','Coast',
                                    'Eastern','Nyanza','Rift Valley',
                                    'Western','North Eastern'))) |> 
@@ -144,7 +144,7 @@ data_2022 <- read_sas(here('Data','2022_BR.sas7bdat')) |>
 
 DHS_data <- bind_rows(data_2003, data_2008_2009, data_2014, data_2022)
 
-## collapse some categories for place of delivery into one category
+## collapse some categories for 'place of delivery' into one category
 
 # table(DHS_data$place_of_delivery, exclude = T)
 
@@ -225,7 +225,7 @@ DHS_data <- survSplit(Surv(B7, u5m) ~ ., data = DHS_data,
                         cut = breaks,  episode = "category")
 
 
-table(DHS_data5$category, exclude = T)
+table(DHS_data$category, exclude = T)
 
 
 # create year of analysis each child is contributing

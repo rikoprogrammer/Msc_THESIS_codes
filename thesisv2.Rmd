@@ -171,7 +171,7 @@ The p-value for the log-rank test is less than 0.05 implying that the survival e
 ```{r}
 
 
-km_fit3 <- survfit(surv_obj ~ region, data = DHS_final)
+km_fit3 <- survfit(surv_obj ~ Region, data = DHS_final)
 
 # Plot Kaplan-Meier survival curves
 #ggplot2::autoplot(km_fit3) + theme_stata()
@@ -297,6 +297,7 @@ survminer::ggsurvplot(
 ```{r}
 
 # Apply DHS sample weights
+
 DHS_final <- DHS_final %>% mutate(wt = V005 / 1e6)
 svy_df <- svydesign(id = ~ 1, weights = ~wt, data = DHS_final)
 
@@ -324,8 +325,8 @@ svy_mean |>
 # Bar plot of under-five mortality rate by region
 
 DHS_final |> 
-  filter(!is.na(region)) |> 
-  ggplot(aes(x = reorder(region, -u5m), y = u5m, weight = wt, fill = region)) +
+  filter(!is.na(Region)) |> 
+  ggplot(aes(x = reorder(Region, -u5m), y = u5m, weight = wt, fill = Region)) +
   geom_bar(stat = "summary", fun = "mean") +
   labs(y     = "Under-Five Mortality Rate", 
        title = "Under-Five Mortality by Region",
@@ -334,7 +335,7 @@ DHS_final |>
   theme(legend.position = 'none') +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
 
-svy_mean2 <- svyby(~u5m, ~ region, svy_df, svymean)
+svy_mean2 <- svyby(~u5m, ~ Region, svy_df, svymean)
 
 svy_mean2 |> 
   knitr::kable(caption = 'Under-five mortality by region')
@@ -387,7 +388,7 @@ tests$table |> knitr::kable(digits = 1)
 # period does not meet PH assumption
 
 cox_model_region <-  survival::coxph(
-              Surv(age_death_months, u5m) ~ region ,data = DHS_final
+              Surv(age_death_months, u5m) ~ Region ,data = DHS_final
               )
 
 
@@ -436,6 +437,7 @@ cox_model_wealth %>% tbl_regression(exponentiate = TRUE)
 
 tests = cox.zph(cox_model_wealth) 
 tests$table |> knitr::kable(digits = 1)
+
 ```
 
 *Association between smoking status and hazard function*
@@ -468,12 +470,29 @@ cox_model_full <-  survival::coxph(
               Surv(age_death_months, u5m) ~
               wealth_index + age_of_the_mother +
               sex_of_child  + smoke_status + type_of_residence +
-              preced_birth_interval_months
+              preced_birth_interval_months 
               ,
               data = DHS_final
               )
 
 cox_model_full %>% tbl_regression(exponentiate = TRUE)
+
+## 28th May 2025: Included the survey year (V007) as a covariate in the model; 
+## as a random effect.
+
+library(coxme)
+
+cox_model_full2 <-  coxme(
+              Surv(age_death_months, u5m) ~
+              wealth_index + age_of_the_mother +
+              sex_of_child  + smoke_status + type_of_residence +
+              preced_birth_interval_months + (1 | V007)
+              ,
+              data = DHS_final
+              )
+
+cox_model_full2
+
 
 # test PH assumption
 
@@ -487,8 +506,10 @@ ggcoxzph(tests)
 
 # testing influential observations via deviance residuals
 
-ggcoxdiagnostics(cox_model_full, type = "deviance",
-                 linear.predictions = FALSE, ggtheme = theme_bw())
+# Takes too long to run
+
+# ggcoxdiagnostics(cox_model_full, type = "deviance",
+#                  linear.predictions = FALSE, ggtheme = theme_bw())
 
 ```
 
